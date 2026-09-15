@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Four Beats — a level that explains itself</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0C1D33;
+    --panel:#13294A;
+    --rule:rgba(140,196,235,.16);
+    --chalk:#E4EDF6;
+    --muted:#92B0CC;
+    --ki:#5FD2C4;
+    --sho:#F3C24B;
+    --ten:#E8562B;
+    --ketsu:#B39BF0;
+    --tile:32px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--ink);
+    background-image:
+      linear-gradient(var(--rule) 1px,transparent 1px),
+      linear-gradient(90deg,var(--rule) 1px,transparent 1px);
+    background-size:32px 32px;
+    color:var(--chalk);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    font-size:17px;
+    line-height:1.6;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 80px}
+
+  header.masthead{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    gap:24px;flex-wrap:wrap;
+    border-bottom:1px solid var(--rule);
+    padding-bottom:18px;margin-bottom:26px;
+  }
+  h1{
+    font-family:"Space Grotesk",sans-serif;
+    font-weight:700;font-size:clamp(34px,6vw,54px);
+    letter-spacing:-.025em;line-height:1;margin:0;
+  }
+  .kanji-strip{
+    font-size:clamp(22px,4vw,30px);
+    color:var(--muted);letter-spacing:.35em;
+    font-family:"Space Grotesk",sans-serif;
+  }
+  .tagline{max-width:52ch;color:var(--muted);margin:10px 0 0;font-size:16px}
+
+  /* ---------- game ---------- */
+  .stage{position:relative;border:1px solid rgba(140,196,235,.3);background:#0A1729;border-radius:4px;overflow:hidden}
+  canvas{display:block;width:100%;height:auto;image-rendering:auto;touch-action:none}
+
+  .hud{
+    position:absolute;top:0;left:0;right:0;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:8px 12px;font-family:"IBM Plex Mono",monospace;font-size:12px;
+    color:var(--muted);pointer-events:none;
+  }
+  .hud .beat-now{color:var(--chalk);font-weight:600;letter-spacing:.06em}
+
+  .card{
+    position:absolute;inset:0;display:none;
+    align-items:center;justify-content:center;
+    background:rgba(8,20,36,.93);padding:24px;
+  }
+  .card.show{display:flex}
+  .card-inner{max-width:560px}
+  .card .beat-mark{
+    font-family:"Space Grotesk",sans-serif;font-size:46px;line-height:1;
+    display:flex;align-items:baseline;gap:14px;margin-bottom:6px;
+  }
+  .card .beat-role{font-size:15px;color:var(--muted);letter-spacing:.04em;font-family:"IBM Plex Mono",monospace}
+  .card h2{font-family:"Space Grotesk",sans-serif;font-size:26px;margin:14px 0 8px;letter-spacing:-.01em}
+  .card p{margin:0 0 12px;font-size:17px}
+  .card .watch{border-left:3px solid currentColor;padding-left:14px;color:var(--muted);font-size:15px}
+  .card .watch em{font-style:normal;color:var(--chalk)}
+  .go{
+    margin-top:20px;font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--muted);
+    background:none;border:1px solid var(--rule);color:var(--chalk);
+    padding:9px 16px;border-radius:3px;cursor:pointer;
+  }
+  .go:hover{background:rgba(140,196,235,.1)}
+  .go:focus-visible{outline:2px solid var(--sho);outline-offset:2px}
+
+  /* ---------- beat ribbon ---------- */
+  .ribbon{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-top:2px}
+  .seg{
+    background:var(--panel);padding:12px 14px;border-top:3px solid rgba(140,196,235,.2);
+    opacity:.42;transition:opacity .25s ease;
+  }
+  .seg.lit{opacity:1}
+  .seg .n{font-family:"Space Grotesk",sans-serif;font-size:20px;font-weight:700;display:block}
+  .seg .r{font-size:13px;color:var(--muted);font-family:"IBM Plex Mono",monospace}
+  .seg[data-b="ki"]{border-top-color:var(--ki)}
+  .seg[data-b="sho"]{border-top-color:var(--sho)}
+  .seg[data-b="ten"]{border-top-color:var(--ten)}
+  .seg[data-b="ketsu"]{border-top-color:var(--ketsu)}
+
+  .controls{
+    margin-top:14px;font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--muted);
+    display:flex;gap:22px;flex-wrap:wrap;
+  }
+  kbd{
+    font-family:inherit;background:var(--panel);border:1px solid var(--rule);
+    border-radius:3px;padding:2px 7px;color:var(--chalk);
+  }
+  .touch{display:none;gap:10px;margin-top:14px}
+  .touch button{
+    flex:1;padding:18px 0;font-size:20px;background:var(--panel);
+    color:var(--chalk);border:1px solid var(--rule);border-radius:4px;
+    font-family:"Space Grotesk",sans-serif;
+  }
+  .touch button:active{background:#1D3B60}
+  @media (hover:none) and (pointer:coarse){ .touch{display:flex} }
+
+  /* ---------- notes ---------- */
+  .notes{margin-top:54px;border-top:1px solid var(--rule);padding-top:30px}
+  .notes h3{
+    font-family:"Space Grotesk",sans-serif;font-size:22px;margin:0 0 6px;letter-spacing:-.01em;
+  }
+  .notes > p{color:var(--muted);max-width:62ch;margin-top:0}
+  .note{
+    border-left:3px solid var(--rule);padding:4px 0 4px 18px;margin:26px 0;max-width:66ch;
+  }
+  .note h4{
+    font-family:"Space Grotesk",sans-serif;font-size:19px;margin:0 0 6px;font-weight:700;
+  }
+  .note p{margin:0 0 10px}
+  .note .mario{color:var(--muted);font-size:15px}
+  .note[data-b="ki"]{border-left-color:var(--ki)} .note[data-b="ki"] h4{color:var(--ki)}
+  .note[data-b="sho"]{border-left-color:var(--sho)} .note[data-b="sho"] h4{color:var(--sho)}
+  .note[data-b="ten"]{border-left-color:var(--ten)} .note[data-b="ten"] h4{color:var(--ten)}
+  .note[data-b="ketsu"]{border-left-color:var(--ketsu)} .note[data-b="ketsu"] h4{color:var(--ketsu)}
+
+  .task{background:var(--panel);padding:24px 26px;border-radius:4px;margin-top:40px;max-width:66ch}
+  .task h3{margin-top:0}
+  .task ol{padding-left:20px;margin:0}
+  .task li{margin-bottom:10px}
+  footer{margin-top:60px;color:var(--muted);font-size:14px;border-top:1px solid var(--rule);padding-top:18px}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <h1>Four Beats</h1>
+      <p class="tagline">A level that tells you how it was built, right as you play it. Reach the flag and you will have been taught something without reading a tutorial.</p>
+    </div>
+    <div class="kanji-strip" aria-label="ki sho ten ketsu">起承転結</div>
+  </header>
+
+  <div class="stage">
+    <canvas id="game" width="960" height="480" aria-label="Platformer level"></canvas>
+    <div class="hud">
+      <span id="hudBeat" class="beat-now">起 KI</span>
+      <span id="hudStat">tokens 0/6</span>
+    </div>
+    <div class="card" id="card">
+      <div class="card-inner">
+        <div class="beat-mark" id="cardMark"></div>
+        <div class="beat-role" id="cardRole"></div>
+        <h2 id="cardTitle"></h2>
+        <p id="cardBody"></p>
+        <div class="watch" id="cardWatch"></div>
+        <button class="go" id="cardGo">Keep playing</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ribbon">
+    <div class="seg lit" data-b="ki"><span class="n">起 Ki</span><span class="r">introduce</span></div>
+    <div class="seg" data-b="sho"><span class="n">承 Shō</span><span class="r">develop</span></div>
+    <div class="seg" data-b="ten"><span class="n">転 Ten</span><span class="r">twist</span></div>
+    <div class="seg" data-b="ketsu"><span class="n">結 Ketsu</span><span class="r">conclude</span></div>
+  </div>
+
+  <div class="controls">
+    <span><kbd>←</kbd> <kbd>→</kbd> move</span>
+    <span><kbd>space</kbd> jump</span>
+    <span><kbd>R</kbd> restart beat</span>
+    <span>land on a drifter to squash it</span>
+  </div>
+
+  <div class="touch">
+    <button id="tLeft" aria-label="Move left">←</button>
+    <button id="tJump" aria-label="Jump">JUMP</button>
+    <button id="tRight" aria-label="Move right">→</button>
+  </div>
+
+  <section class="notes">
+    <h3>The designer's notes</h3>
+    <p>Kishōtenketsu is a four-part structure borrowed from Japanese storytelling. Game designers use it to teach a mechanic without ever writing "press A to jump." Here is what each section of this level is actually doing.</p>
+
+    <div class="note" data-b="ki">
+      <h4>起 Ki — introduce, with nothing at stake</h4>
+      <p>You meet the spring on flat ground. No gap under it, no drifter near it, no timer. There is a token floating above so you have a reason to bounce. If you fail, nothing happens, so you experiment.</p>
+      <p class="mario">In World 1-1, this is the first Goomba. It walks toward you on flat ground with a huge runway, so the game can teach "jump over things" without killing you for being slow.</p>
+    </div>
+
+    <div class="note" data-b="sho">
+      <h4>承 Shō — develop, now it counts</h4>
+      <p>Same spring, real consequence. One gap is too wide to clear on your own jump, and one ledge is too high. The spring is the only answer to both. You are not learning anything new here. You are proving the first section worked.</p>
+      <p class="mario">World 1-1 does this with pits and stacked Goombas. Same skill, higher price for missing.</p>
+    </div>
+
+    <div class="note" data-b="ten">
+      <h4>転 Ten — twist, change the question</h4>
+      <p>The drifters arrive. The spring still works exactly the same, but aim is no longer the hard part. Timing is. A twist does not replace the mechanic, it asks a different question about it.</p>
+      <p class="mario">World 1-1 drops the ceiling on you in the pipe section, so the same jump now has to fit under something.</p>
+    </div>
+
+    <div class="note" data-b="ketsu">
+      <h4>結 Ketsu — conclude, everything at once</h4>
+      <p>Spring, wide gap, height, and moving hazards, stacked into one run with nothing new added. If you clear it, the level has proof that you learned it. That is the whole point of the structure.</p>
+      <p class="mario">World 1-1 ends with the staircase and the flagpole. No new mechanic, just a clean test of the jump you have been practicing for ninety seconds.</p>
+    </div>
+
+    <div class="task">
+      <h3>Your turn</h3>
+      <ol>
+        <li>Pick one mechanic from your own game. One. Not three.</li>
+        <li>Sketch four boxes labeled Ki, Shō, Ten, Ketsu.</li>
+        <li>Ki: where does the player meet it with zero risk?</li>
+        <li>Shō: where is it required instead of optional?</li>
+        <li>Ten: what changes so the same mechanic asks a new question?</li>
+        <li>Ketsu: what combines it all with nothing new introduced?</li>
+        <li>Build it. If you had to add a text box explaining the controls, a beat is missing.</li>
+      </ol>
+    </div>
+  </section>
+
+  <footer>Original level and art. Built for classroom use.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const cv = document.getElementById('game');
+  const ctx = cv.getContext('2d');
+  const T = 32, VW = cv.width, VH = cv.height;
+  const MAPW = 212, MAPH = 15;
+
+  // ---------- build the level ----------
+  const map = [];
+  for (let y=0;y<MAPH;y++) map.push(new Array(MAPW).fill('.'));
+  const solid = c => c==='#' || c==='=';
+
+  function ground(x0,x1,top){ top = (top===undefined)?12:top;
+    for(let x=x0;x<x1;x++) for(let y=top;y<MAPH;y++) map[y][x]='#'; }
+  function plat(x0,x1,y){ for(let x=x0;x<x1;x++) map[y][x]='='; }
+  function block(x0,x1,y0,y1){ for(let x=x0;x<x1;x++) for(let y=y0;y<y1;y++) map[y][x]='#'; }
+
+  const springs = [], tokens = [], drifters = [];
+  const addSpring=(tx,ty)=>springs.push({x:tx*T,y:ty*T,w:T,h:T,t:0});
+  const addToken=(tx,ty)=>tokens.push({x:tx*T+T/2,y:ty*T+T/2,got:false});
+  const addDrifter=(tx,ty,x0,x1)=>drifters.push({
+    x:tx*T, y:ty*T+10, w:26, h:22,
+    l:x0*T, r:x1*T-26, d:1, dead:false, hx:tx*T, phase:Math.random()*6 });
+
+  // Tuned so a plain jump clears ~3 tiles and a spring clears ~6 tiles / 3 tiles up.
+  // --- KI (0-49): flat, safe, one new toy ---
+  ground(0,68);
+  block(16,19,11,12);
+  addToken(17,9);
+  addSpring(32,11);
+  addToken(32,5);
+
+  // --- SHO (50-103): the spring becomes the only answer ---
+  addSpring(67,11);          // 4-tile gap: too wide for a plain jump
+  ground(72,98);
+  addToken(70,6);
+  addSpring(78,11);          // 3-tall wall: too high for a plain jump
+  block(81,92,9,12);
+  addToken(86,7);
+  ground(100,124);           // 2-tile gap: a plain-jump callback
+
+  // --- TEN (104-141): movement enters ---
+  addDrifter(112,11,107,119);
+  addSpring(123,11);
+  addToken(126,5);
+  ground(128,152);
+  ground(156,190);
+  addDrifter(136,11,132,142);
+
+  // --- KETSU (142-211): all of it, nothing new ---
+  addSpring(151,11);
+  addDrifter(163,11,160,169);
+  addSpring(170,11);
+  block(173,186,9,12);
+  addDrifter(179,8,178,185);
+  addToken(180,7);
+  ground(192,212);
+  block(200,203,11,12);
+  block(203,206,10,12);
+  block(206,209,9,12);
+  const FLAG = {x:209*T, y:4*T};
+
+  // ---------- beats ----------
+  const BEATS = [
+    { id:'ki', kanji:'起', name:'Ki', role:'introduce', tx:0, spawn:{x:2,y:10}, color:'#5FD2C4',
+      title:'Meet the spring. Nothing can hurt you.',
+      body:'There is a spring on flat ground and a token floating above it. No gap, no enemy, no timer. The level wants you to poke at the new thing and find out what it does.',
+      watch:'<em>Watch for:</em> a designer giving you a safe room to be curious in.' },
+    { id:'sho', kanji:'承', name:'Shō', role:'develop', tx:50, spawn:{x:52,y:10}, color:'#F3C24B',
+      title:'Same spring. Now you need it.',
+      body:'The gap ahead is wider than your jump, and the ledge with the token is higher than your jump. Nothing new was added. The level just raised the price of not paying attention.',
+      watch:'<em>Watch for:</em> the moment optional becomes required.' },
+    { id:'ten', kanji:'転', name:'Ten', role:'twist', tx:104, spawn:{x:106,y:10}, color:'#E8562B',
+      title:'Something moves.',
+      body:'Drifters patrol the ground. The spring works exactly as before, but aiming it is no longer the hard part. Timing is. A twist does not hand you a new mechanic, it asks a new question about the one you have.',
+      watch:'<em>Watch for:</em> the rule that stayed the same while the problem changed.' },
+    { id:'ketsu', kanji:'結', name:'Ketsu', role:'conclude', tx:142, spawn:{x:143,y:10}, color:'#B39BF0',
+      title:'Everything at once. Nothing new.',
+      body:'Spring over the gap, land on a patrolled platform, spring again to the high ledge, then the stairs to the flag. Every piece is something you already did. Clearing it is the level checking its own work.',
+      watch:'<em>Watch for:</em> a finale that adds zero new ideas.' }
+  ];
+
+  // ---------- player ----------
+  const P = { x:0, y:0, w:22, h:28, vx:0, vy:0, grounded:false, face:1, coyote:0, jumpBuf:0, dead:0, blink:0, noCut:false };
+  const GRAV=0.62, RUN=3.4, JUMP=-11, SPRING=-17.5, MAXFALL=14;
+
+  let camX=0, beatIdx=0, paused=true, won=false, got=0;
+  const seen = {};
+
+  function spawnAt(b){
+    P.x=b.spawn.x*T; P.y=b.spawn.y*T; P.vx=0; P.vy=0; P.dead=0; P.noCut=false;
+    drifters.forEach(d=>{ if(d.hx > b.tx*T){ d.dead=false; d.x=d.hx; } });
+    camX = Math.max(0, Math.min(P.x - VW/2, MAPW*T - VW));
+  }
+
+  // ---------- input ----------
+  const keys = {};
+  const held = {left:false,right:false,jump:false};
+  addEventListener('keydown',e=>{
+    if(['ArrowLeft','ArrowRight','Space','ArrowUp','KeyR','KeyA','KeyD','KeyW'].includes(e.code)) e.preventDefault();
+    if(e.repeat) return;
+    keys[e.code]=true;
+    if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW'){ if(paused){ resume(); } else P.jumpBuf=8; }
+    if(e.code==='KeyR' && !paused) spawnAt(BEATS[beatIdx]);
+  });
+  addEventListener('keyup',e=>{ keys[e.code]=false; });
+
+  function bindTouch(el,k){
+    const on=e=>{e.preventDefault(); held[k]=true; if(k==='jump'){ if(paused) resume(); else P.jumpBuf=8; }};
+    const off=e=>{e.preventDefault(); held[k]=false;};
+    el.addEventListener('touchstart',on,{passive:false});
+    el.addEventListener('touchend',off,{passive:false});
+    el.addEventListener('touchcancel',off,{passive:false});
+    el.addEventListener('mousedown',on); el.addEventListener('mouseup',off); el.addEventListener('mouseleave',off);
+  }
+  bindTouch(document.getElementById('tLeft'),'left');
+  bindTouch(document.getElementById('tRight'),'right');
+  bindTouch(document.getElementById('tJump'),'jump');
+
+  const left  = ()=> keys['ArrowLeft']||keys['KeyA']||held.left;
+  const right = ()=> keys['ArrowRight']||keys['KeyD']||held.right;
+  const jumpHeld = ()=> keys['Space']||keys['ArrowUp']||keys['KeyW']||held.jump;
+
+  // ---------- cards ----------
+  const card=document.getElementById('card');
+  function showCard(b, final){
+    paused=true;
+    document.getElementById('cardMark').innerHTML =
+      '<span style="color:'+b.color+'">'+b.kanji+'</span><span style="font-size:26px">'+b.name+'</span>';
+    document.getElementById('cardRole').textContent = final ? 'level complete' : b.role;
+    document.getElementById('cardTitle').textContent = final ? 'You just played a four beat lesson.' : b.title;
+    document.getElementById('cardBody').textContent = final
+      ? 'One mechanic. Introduced safely, made necessary, twisted, then combined. You were never told the controls. Scroll down for the designer\u2019s notes and your build task.'
+      : b.body;
+    const w=document.getElementById('cardWatch');
+    w.innerHTML = final ? '<em>Tokens collected:</em> '+got+' of '+tokens.length : b.watch;
+    w.style.color = b.color;
+    document.getElementById('cardGo').textContent = final ? 'Play again' : 'Keep playing';
+    card.classList.add('show');
+    document.getElementById('cardGo').focus();
+  }
+  function resume(){
+    card.classList.remove('show');
+    paused=false;
+    if(won){ won=false; got=0; Object.keys(seen).forEach(k=>{ if(k!=='ki') delete seen[k]; }); tokens.forEach(t=>t.got=false); drifters.forEach(d=>d.dead=false); beatIdx=0; lightRibbon(); spawnAt(BEATS[0]); }
+  }
+  document.getElementById('cardGo').addEventListener('click',resume);
+  cv.addEventListener('click',()=>{ if(paused) resume(); });
+
+  function lightRibbon(){
+    document.querySelectorAll('.seg').forEach((s,i)=> s.classList.toggle('lit', i<=beatIdx));
+    const b=BEATS[beatIdx];
+    document.getElementById('hudBeat').innerHTML='<span style="color:'+b.color+'">'+b.kanji+'</span> '+b.name.toUpperCase();
+  }
+
+  // ---------- collision ----------
+  function hits(x,y,w,h){
+    const tx0=Math.floor(x/T), tx1=Math.floor((x+w-1)/T);
+    const ty0=Math.floor(y/T), ty1=Math.floor((y+h-1)/T);
+    for(let ty=ty0;ty<=ty1;ty++){
+      if(ty<0||ty>=MAPH) continue;
+      for(let tx=tx0;tx<=tx1;tx++){
+        if(tx<0||tx>=MAPW) return true;
+        if(solid(map[ty][tx])) return true;
+      }
+    }
+    return false;
+  }
+  function moveX(dx){
+    const s=Math.sign(dx); let rem=Math.abs(dx);
+    while(rem>0.001){
+      const st=Math.min(1,rem);
+      if(hits(P.x+s*st,P.y,P.w,P.h)){ P.vx=0; return; }
+      P.x+=s*st; rem-=st;
+    }
+  }
+  function moveY(dy){
+    const s=Math.sign(dy); let rem=Math.abs(dy);
+    while(rem>0.001){
+      const st=Math.min(1,rem);
+      if(hits(P.x,P.y+s*st,P.w,P.h)){
+        if(s>0){ P.grounded=true; P.coyote=6; }
+        P.vy=0; return;
+      }
+      P.y+=s*st; rem-=st;
+    }
+  }
+
+  function step(){
+    if(paused||P.dead>0){
+      if(P.dead>0){ P.dead--; if(P.dead===0) spawnAt(BEATS[beatIdx]); }
+      return;
+    }
+    // horizontal
+    const dir = (right()?1:0) - (left()?1:0);
+    P.vx = dir*RUN;
+    if(dir) P.face=dir;
+    if(P.vx) moveX(P.vx);
+    if(P.x<0) P.x=0;
+    if(P.x>MAPW*T-P.w) P.x=MAPW*T-P.w;
+
+    // vertical
+    P.vy = Math.min(P.vy+GRAV, MAXFALL);
+    if(P.vy<0 && !jumpHeld() && !P.noCut) P.vy += 0.42;   // variable jump height
+    if(P.vy>=0) P.noCut=false;
+    const wasGrounded = P.grounded;
+    P.grounded = false;
+    moveY(P.vy);
+    if(!P.grounded){ if(wasGrounded && P.coyote<=0) P.coyote=6; if(P.coyote>0) P.coyote--; }
+
+    if(P.jumpBuf>0){ P.jumpBuf--; if(P.coyote>0||P.grounded){ P.vy=JUMP; P.grounded=false; P.coyote=0; P.jumpBuf=0; } }
+
+    // springs
+    springs.forEach(s=>{
+      s.t = Math.max(0, s.t-1);
+      if(P.x+P.w>s.x+4 && P.x<s.x+s.w-4 && P.y+P.h>s.y+10 && P.y+P.h<s.y+s.h+10 && P.vy>=0){
+        P.vy=SPRING; P.y=s.y-P.h; s.t=12; P.grounded=false; P.noCut=true;
+      }
+    });
+
+    // drifters
+    drifters.forEach(d=>{
+      if(d.dead) return;
+      d.phase+=0.12;
+      d.x += d.d*1.15;
+      if(d.x<d.l){d.x=d.l;d.d=1;} if(d.x>d.r){d.x=d.r;d.d=-1;}
+      const ov = P.x+P.w>d.x+2 && P.x<d.x+d.w-2 && P.y+P.h>d.y+4 && P.y<d.y+d.h;
+      if(ov){
+        if(P.vy>1 && P.y+P.h < d.y+18){ d.dead=true; P.vy=-9; }
+        else { P.dead=26; }
+      }
+    });
+
+    // tokens
+    tokens.forEach(t=>{
+      if(t.got) return;
+      if(Math.abs((P.x+P.w/2)-t.x)<20 && Math.abs((P.y+P.h/2)-t.y)<22){ t.got=true; got++;
+        document.getElementById('hudStat').textContent='tokens '+got+'/'+tokens.length; }
+    });
+
+    // fell in a pit
+    if(P.y>MAPH*T+60) P.dead=1;
+
+    // beat triggers
+    const ptx = Math.floor(P.x/T);
+    for(let i=BEATS.length-1;i>=0;i--){
+      if(ptx>=BEATS[i].tx && !seen[BEATS[i].id]){
+        seen[BEATS[i].id]=true; beatIdx=i; lightRibbon(); showCard(BEATS[i],false); break;
+      }
+      if(ptx>=BEATS[i].tx){ if(beatIdx!==i){ beatIdx=i; lightRibbon(); } break; }
+    }
+
+    // flag
+    if(!won && P.x+P.w>FLAG.x && P.y<FLAG.y+6*T){
+      won=true; showCard(BEATS[3],true);
+    }
+
+    camX += ((P.x - VW/2) - camX)*0.12;
+    camX = Math.max(0, Math.min(camX, MAPW*T - VW));
+  }
+
+  // ---------- draw ----------
+  function beatColorAtX(x){
+    let c = BEATS[0].color;
+    BEATS.forEach(b=>{ if(x >= b.tx*T) c=b.color; });
+    return c;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,VW,VH);
+    // sky
+    const g=ctx.createLinearGradient(0,0,0,VH);
+    g.addColorStop(0,'#0A1729'); g.addColorStop(1,'#102B48');
+    ctx.fillStyle=g; ctx.fillRect(0,0,VW,VH);
+
+    // drafting grid
+    ctx.strokeStyle='rgba(140,196,235,.07)'; ctx.lineWidth=1;
+    const off = -camX % T;
+    for(let x=off;x<VW;x+=T){ ctx.beginPath(); ctx.moveTo(Math.round(x)+.5,0); ctx.lineTo(Math.round(x)+.5,VH); ctx.stroke(); }
+    for(let y=0;y<VH;y+=T){ ctx.beginPath(); ctx.moveTo(0,Math.round(y)+.5); ctx.lineTo(VW,Math.round(y)+.5); ctx.stroke(); }
+
+    // beat boundary markers
+    ctx.font='600 13px "IBM Plex Mono", monospace';
+    BEATS.forEach(b=>{
+      const sx=b.tx*T-camX;
+      if(sx>-60 && sx<VW+60 && b.tx>0){
+        ctx.strokeStyle=b.color; ctx.globalAlpha=.45; ctx.setLineDash([6,8]);
+        ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx,VH); ctx.stroke();
+        ctx.setLineDash([]); ctx.globalAlpha=1;
+        ctx.fillStyle=b.color; ctx.fillText(b.kanji+' '+b.name, sx+8, 22);
+      }
+    });
+
+    const x0=Math.floor(camX/T), x1=Math.ceil((camX+VW)/T);
+    // tiles
+    for(let ty=0;ty<MAPH;ty++){
+      for(let tx=x0;tx<=x1;tx++){
+        if(tx<0||tx>=MAPW) continue;
+        const c=map[ty][tx]; if(!solid(c)) continue;
+        const sx=tx*T-camX, sy=ty*T;
+        const above = (ty>0 && solid(map[ty-1][tx]));
+        ctx.fillStyle = above ? '#15304F' : '#1B3E63';
+        ctx.fillRect(sx,sy,T,T);
+        ctx.strokeStyle='rgba(10,20,36,.6)'; ctx.strokeRect(sx+.5,sy+.5,T-1,T-1);
+        if(!above){
+          ctx.fillStyle=beatColorAtX(tx*T); ctx.globalAlpha=.85;
+          ctx.fillRect(sx,sy,T,3); ctx.globalAlpha=1;
+        }
+      }
+    }
+
+    // springs
+    springs.forEach(s=>{
+      const sx=s.x-camX, sy=s.y; if(sx<-60||sx>VW+60) return;
+      const sq = s.t>0 ? 10 : 0;
+      ctx.strokeStyle='#F3C24B'; ctx.lineWidth=3; ctx.beginPath();
+      for(let i=0;i<4;i++){
+        const yy=sy+12+sq+i*(5-sq/5);
+        ctx.moveTo(sx+7,yy); ctx.lineTo(sx+25,yy+3);
+      }
+      ctx.stroke();
+      ctx.fillStyle='#F3C24B';
+      ctx.fillRect(sx+4,sy+8+sq,24,5);
+      ctx.fillRect(sx+2,sy+T-4,28,4);
+    });
+
+    // tokens
+    tokens.forEach(t=>{
+      if(t.got) return;
+      const sx=t.x-camX; if(sx<-40||sx>VW+40) return;
+      const bob=Math.sin(Date.now()/380 + t.x)*3;
+      ctx.save(); ctx.translate(sx,t.y+bob); ctx.rotate(Math.PI/4);
+      ctx.fillStyle='#E4EDF6'; ctx.fillRect(-7,-7,14,14);
+      ctx.fillStyle=beatColorAtX(t.x); ctx.fillRect(-3.5,-3.5,7,7);
+      ctx.restore();
+    });
+
+    // drifters
+    drifters.forEach(d=>{
+      if(d.dead) return;
+      const sx=d.x-camX; if(sx<-60||sx>VW+60) return;
+      const sy=d.y+Math.sin(d.phase)*2;
+      ctx.fillStyle='#E8562B';
+      ctx.beginPath(); ctx.ellipse(sx+d.w/2, sy+d.h/2, d.w/2, d.h/2, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#0A1729';
+      ctx.fillRect(sx+6, sy+7, 4, 5); ctx.fillRect(sx+16, sy+7, 4, 5);
+      ctx.strokeStyle='#E8562B'; ctx.lineWidth=2;
+      for(let i=0;i<3;i++){
+        ctx.beginPath(); ctx.moveTo(sx+5+i*8, sy+1); ctx.lineTo(sx+9+i*8, sy-6); ctx.stroke();
+      }
+    });
+
+    // flag
+    const fx=FLAG.x-camX;
+    if(fx>-80 && fx<VW+80){
+      ctx.strokeStyle='#E4EDF6'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(fx,FLAG.y); ctx.lineTo(fx,FLAG.y+5*T); ctx.stroke();
+      ctx.fillStyle='#B39BF0';
+      ctx.beginPath(); ctx.moveTo(fx+2,FLAG.y+4); ctx.lineTo(fx+40,FLAG.y+16); ctx.lineTo(fx+2,FLAG.y+30); ctx.fill();
+    }
+
+    // player
+    if(P.dead===0){
+      const sx=P.x-camX, sy=P.y;
+      ctx.fillStyle='#E4EDF6';
+      ctx.beginPath();
+      if(ctx.roundRect) ctx.roundRect(sx,sy,P.w,P.h,6); else ctx.rect(sx,sy,P.w,P.h);
+      ctx.fill();
+      ctx.fillStyle='#0C1D33';
+      ctx.fillRect(sx + (P.face>0?12:5), sy+8, 5, 6);
+      ctx.fillStyle=beatColorAtX(P.x);
+      ctx.fillRect(sx, sy+P.h-5, P.w, 5);
+    } else {
+      const sx=P.x-camX;
+      ctx.strokeStyle='#E8562B'; ctx.lineWidth=3;
+      const r=(26-P.dead)*1.4;
+      ctx.beginPath(); ctx.arc(sx+P.w/2,P.y+P.h/2,r,0,Math.PI*2); ctx.stroke();
+    }
+  }
+
+  function loop(){ step(); draw(); requestAnimationFrame(loop); }
+
+  // boot
+  document.getElementById('hudStat').textContent='tokens 0/'+tokens.length;
+  spawnAt(BEATS[0]);
+  seen['ki']=true; lightRibbon(); showCard(BEATS[0],false);
+  loop();
+})();
+</script>
+</body>
+</html>
